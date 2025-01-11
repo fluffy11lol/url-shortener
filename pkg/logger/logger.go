@@ -1,9 +1,9 @@
-package loggerSetup
+package logger
 
 import (
 	"log/slog"
 	"os"
-	"url-shortener/internal/logger/handlers/slogpretty"
+	"url-shortener/pkg/logger/handlers/slogpretty"
 )
 
 const (
@@ -17,20 +17,20 @@ type Logger struct {
 }
 
 func InitLogger(env string) *Logger {
-	var logger *slog.Logger
+	var log *slog.Logger
 	switch env {
 	case local:
-		//logger = slog.New(
+		//log = slog.New(
 		//	slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
 		//)
-		logger = setupPrettySlog()
+		log = setupPrettySlog()
 	case dev:
-		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	case prod:
-		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	}
 
-	return &Logger{logger}
+	return &Logger{log}
 }
 func setupPrettySlog() *slog.Logger {
 	opts := slogpretty.PrettyHandlerOptions{
@@ -44,6 +44,12 @@ func setupPrettySlog() *slog.Logger {
 	return slog.New(handler)
 }
 func (l *Logger) ErrAttr(err error) slog.Attr {
+	return slog.Attr{
+		Key:   "error",
+		Value: slog.StringValue(err.Error()),
+	}
+}
+func ErrAttr(err error) slog.Attr {
 	return slog.Attr{
 		Key:   "error",
 		Value: slog.StringValue(err.Error()),
