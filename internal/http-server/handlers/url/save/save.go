@@ -15,13 +15,16 @@ import (
 const aliasLength = 5
 
 type Request struct {
-	URL   string `json:"url" validate:"required, url"`
+	URL   string `json:"url" validate:"required,url"`
 	Alias string `json:"alias,omitempty"`
 }
+
 type Response struct {
 	resp.Response
 	Alias string `json:"alias,omitempty"`
 }
+
+//go:generate go run github.com/vektra/mockery/v2 --name=URLSaver
 type URLSaver interface {
 	SaveURL(urlToSave, alias string) (int64, error)
 }
@@ -32,22 +35,27 @@ func New(log *slog.Logger, storage URLSaver) http.HandlerFunc {
 
 		log = log.With(
 			slog.String("op", op),
-			slog.String("request_id", middleware.GetReqID(r.Context())))
+			slog.String("request_id", middleware.GetReqID(r.Context())),
+		)
+
 		var req Request
 		err := render.DecodeJSON(r.Body, &req)
 		if err != nil {
-			log.Error("error decoding request body: ", err)
-			render.JSON(w, r, resp.Error(err.Error()))
+			log.Error("error decoding request body: ", logger.ErrAttr(err))
+			render.Status(r, http.StatusBadRequest)
+			render.JSON(w, r, resp.Error("invalid request body"))
 			return
 		}
+
 		log.Info("request received", slog.Any("request", req))
 
-		err = validator.New().Struct(req)
+		validate := validator.New()
+		err = validate.Struct(req)
 		if err != nil {
 			var validateErr validator.ValidationErrors
 			errors.As(err, &validateErr)
 			log.Error("invalid request", logger.ErrAttr(err))
-			render.JSON(w, r, "invalid request")
+			render.Status(r, http.StatusBadRequest)
 			render.JSON(w, r, resp.ValidationError(validateErr))
 			return
 		}
@@ -59,16 +67,17 @@ func New(log *slog.Logger, storage URLSaver) http.HandlerFunc {
 
 		id, err := storage.SaveURL(req.URL, req.Alias)
 		if err != nil {
-			log.Error("error saving url: ", err)
-			render.JSON(w, r, resp.Error(err.Error()))
+			log.Error("error saving url: ", logger.ErrAttr(err))
+			render.Status(r, http.StatusInternalServerError)
+			render.JSON(w, r, resp.Error("failed to add url"))
 			return
 		}
 
 		log.Info("url saved", slog.Int64("id", id))
+		render.Status(r, http.StatusCreated)
 		render.JSON(w, r, Response{
 			Response: resp.Success(),
 			Alias:    req.Alias,
 		})
-		return
 	}
 }
