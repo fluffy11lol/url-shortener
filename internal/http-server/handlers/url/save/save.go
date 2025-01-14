@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	resp "url-shortener/internal/http-server/api/response"
+	storage2 "url-shortener/internal/storage"
 	"url-shortener/pkg/logger"
 	"url-shortener/pkg/random"
 )
@@ -60,13 +61,19 @@ func New(log *slog.Logger, storage URLSaver) http.HandlerFunc {
 			return
 		}
 
-		// TODO: check if url exists
 		if req.Alias == "" {
 			req.Alias = random.GetRandomAlias(aliasLength)
 		}
 
 		id, err := storage.SaveURL(req.URL, req.Alias)
 		if err != nil {
+			if errors.Is(err, storage2.ErrUrlAlreadyExist) {
+				log.Error("url already exist",
+					slog.String("alias", req.Alias), logger.ErrAttr(err))
+				render.Status(r, http.StatusConflict)
+				render.JSON(w, r, resp.Error("url already exist"))
+				return
+			}
 			log.Error("error saving url: ", logger.ErrAttr(err))
 			render.Status(r, http.StatusInternalServerError)
 			render.JSON(w, r, resp.Error("failed to add url"))
