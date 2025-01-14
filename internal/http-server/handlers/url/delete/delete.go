@@ -1,4 +1,4 @@
-package redirect
+package delete
 
 import (
 	"errors"
@@ -7,21 +7,20 @@ import (
 	"github.com/go-chi/render"
 	"log/slog"
 	"net/http"
-	"strings"
 	resp "url-shortener/internal/http-server/api/response"
 	storage2 "url-shortener/internal/storage"
 	"url-shortener/pkg/logger"
 )
 
-//go:generate go run github.com/vektra/mockery/v2 --name=URLGetter
-type URLGetter interface {
-	GetUrlByAlias(alias string) (string, error)
+//go:generate go run github.com/vektra/mockery/v2 --name=URLDeleter
+type URLDeleter interface {
+	DeleteAlias(alias string) error
 }
 
-func New(log *slog.Logger, storage URLGetter) http.HandlerFunc {
+func New(log *slog.Logger, storage URLDeleter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log = log.With(
-			slog.String("op", "handlers.url.redirect.New"),
+			slog.String("op", "handlers.url.delete.New"),
 			slog.String("request_id", middleware.GetReqID(r.Context())),
 		)
 
@@ -33,7 +32,7 @@ func New(log *slog.Logger, storage URLGetter) http.HandlerFunc {
 			return
 		}
 
-		url, err := storage.GetUrlByAlias(alias)
+		err := storage.DeleteAlias(alias)
 		if err != nil {
 			if errors.Is(err, storage2.ErrUrlNotFound) {
 				log.Error("url not found", logger.ErrAttr(err))
@@ -41,15 +40,15 @@ func New(log *slog.Logger, storage URLGetter) http.HandlerFunc {
 				render.JSON(w, r, resp.Error("url not found"))
 				return
 			}
-			log.Error("error getting url by alias", logger.ErrAttr(err))
+			log.Error("error deleting url", logger.ErrAttr(err))
 			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, resp.Error("error getting url by alias"))
+			render.JSON(w, r, resp.Error("error deleting url"))
 			return
 		}
-		if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-			url = "http://" + url
-		}
-		log.Info("url redirected", slog.String("alias", alias), slog.String("url", url))
-		http.Redirect(w, r, url, http.StatusFound)
+
+		log.Info("url deleted", slog.String("alias", alias))
+		render.Status(r, http.StatusOK)
+		render.JSON(w, r, resp.Success())
+
 	}
 }

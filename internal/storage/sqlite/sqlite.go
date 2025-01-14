@@ -93,9 +93,12 @@ func (s *Storage) DeleteAlias(alias string) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
-	_, err = stmt.Exec(alias)
+	res, err := stmt.Exec(alias)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("%s: %w", op, storage.ErrUrlNotFound)
 	}
 	return nil
 }

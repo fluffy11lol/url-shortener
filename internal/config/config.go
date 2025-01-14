@@ -16,6 +16,8 @@ type HttpServer struct {
 	Port        string        `yaml:"port" env-default:"8081"`
 	Timeout     time.Duration `yaml:"timeout" env-default:"5"`
 	IdleTimeout time.Duration `yaml:"idle_timeout" env-default:"60"`
+	User        string        `yaml:"user" env-required:"true"`
+	Password    string        `yaml:"password" env-required:"true" env:"HTTP_SERVER_PASSWORD"`
 }
 
 func LoadConfig() (*Config, error) {
