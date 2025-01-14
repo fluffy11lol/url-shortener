@@ -1,11 +1,9 @@
 package redirect_test
 
 import (
-	"errors"
-	"fmt"
-	"net/http"
 	"net/http/httptest"
 	"testing"
+	"url-shortener/internal/http-server/api"
 	"url-shortener/pkg/logger/handlers/slogdiscard"
 
 	"github.com/go-chi/chi/v5"
@@ -46,34 +44,10 @@ func TestSaveHandler(t *testing.T) {
 			ts := httptest.NewServer(r)
 			defer ts.Close()
 
-			redirectedToURL, err := GetRedirect(ts.URL + "/" + tc.alias)
+			redirectedToURL, err := api.GetRedirect(ts.URL + "/" + tc.alias)
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.url, redirectedToURL)
 		})
 	}
-}
-
-var ErrInvalidStatusCode = errors.New("invalid status code")
-
-func GetRedirect(url string) (string, error) {
-	const op = "api.GetRedirect"
-
-	client := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-
-	resp, err := client.Get(url)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusFound {
-		return "", fmt.Errorf("%s: %w: %d", op, ErrInvalidStatusCode, resp.StatusCode)
-	}
-
-	return resp.Header.Get("Location"), nil
 }

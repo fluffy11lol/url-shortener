@@ -36,7 +36,7 @@ func main() {
 	defer storage.Close()
 
 	router := chi.NewRouter()
-	router.Use(middleware.Logger)
+	//router.Use(middleware.Logger)
 	router.Use(middleware.RequestID)
 	router.Use(mwLogger.New(log.Logger))
 	router.Use(middleware.Recoverer)
